@@ -1,0 +1,799 @@
+Select Region.[Region];
+
+Select ([Customer].[Account].[Walmart] * [Product].[SKU].[Crunch] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({Measure.[Budget],[TrainingPlan] Measure.[Channel Inv], Measure.[Consumption], Measure.[Forecast], Measure.[Shipment]}) on column;
+Select ([Customer].[Account] * [Product].[SKU] * [Time].[Month] * [Version].[Version Name] ) on row, 
+({Measu[TrainingPlan].[PlanningMeasures].[PlanningMeasures.Time]re.[Budget], Measure.[Channel Inv], Measure.[Consumption], Measure.[Forecast], Measure.[Shipment]}) on column;
+
+select Time.[Year].[2019].relatedmembers(Month);
+
+select Time.[Month].filter(#.DisplayName contains "Apr");
+
+select Customer.[Account].filter(#.DisplayName contains "Kroger");
+
+select Customer.[Account];
+
+select Customer.[Account].filter(#.Key >1);
+
+Select ([Customer].[Account] * [Product].[SKU] * [Time].[Month]);
+
+Select ( [Version].[Version Name] ) on row, 
+({Measure.[Budget]}) on column;
+
+select Time.[Month];
+select Time.[Month].filter(#.Key < todatetime("2019/07/01"));
+--type match nahi ho raha tha kyuki array aur single value hai...
+--so reference using index 
+--below is the way to refer the index
+select Time.[Month].filter(#.Key < &CurrentMonth.element(0).Key);
+
+--cdvnvvjhbvj
+--wo snapshot readoly wala error tha because we were not defining the currentworkingview...
+scope: (Time.[Month].filter(#.Key < &CurrentMonth.element(0).Key) * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook] = Measure.[Shipment];
+end scope;
+--check whther above query executed or not
+select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Outlook], Measure.[Shipment]}) on column;
+--without coalesce null values propagate ho rahi thi, humko null nahi chahiye toh 
+--we can use coalesce to replace null with any default value
+scope: (Time.[Month].filter(#.Key >= &CurrentMonth.element(0).Key) * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook] = coalesce(Measure.[Forecast],10000);
+end scope;
+--check whther above query executed or not isme forecast ke values se update kiya hai..
+select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Outlook], Measure.[Shipment],Measure.[Forecast],Measure.[Budget]}) on column;
+
+
+Select ([Customer].[Account] * [Product].[SKU] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Shipment]}) on column;
+--current month
+select Time.[Month].filter(#.[Month$IsCurrent] == True);
+
+--system ko nameset hai ye batane ke liye use symbol &beforeNameSet
+--namesets are stored in array
+select &CurrentMonth;
+
+
+Select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Budget], Measure.[Channel Inv], Measure.[Consumption], Measure.[Forecast], Measure.[Outlook], Measure.[Shipment]}) on column;
+
+
+--() if ke scope me measure par sare logical operators laga sakte
+scope: (Time.[Month].filter(#.Key >= &CurrentMonth.element(0).Key) * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook] = if(Measure.[Outlook] == 10000) then 0 else Measure.[Outlook];
+end scope;
+
+
+--check result
+select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Outlook], Measure.[Shipment],Measure.[Forecast]}) on column;
+
+--isnull
+scope: (Time.[Month].filter(#.Key >= &CurrentMonth.element(0).Key) * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook] = if(isnull(Measure.[Forecast])) then 100 else Measure.[Outlook];
+end scope;
+
+select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Outlook], Measure.[Shipment],Measure.[Forecast]}) on column;
+
+--Other Measures
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook Vs Budget Gap] = Measure.[Outlook]-Measure.[Budget];
+end scope;
+--check results
+
+select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Outlook], Measure.[Outlook Vs Budget Gap],Measure.[Budget]}) on column;
+
+
+scope: (Time.[Month].filter(#.Key < &CurrentMonth.element(0).Key) * Product.[SKU].[Nestea] *
+Customer.[Account].[Walmart] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook] = null;
+end scope;
+
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook Vs Budget Gap] = coalesce(Measure.[Outlook],0)-Measure.[Budget];
+end scope;
+
+--coalesce make default value whatever specified in the engine not in the database..its like while handling the data we need some
+--data modifications...#Samajh
+
+--check
+--Active Rules measures me kuch relation hai suppose a-b aur agar humne b ko change kiya toh automatically a-b me bhi update hone
+-- for that we have active rules concept
+
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook vs Budget %] = safedivide(Measure.[Outlook] , Measure.[Budget],0);
+end scope;
+
+select ([Customer].[Account].[Walmart]  *Product.[SKU].[Nestea]* &FutureMonths * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Outlook], Measure.[Shipment],Measure.[Forecast], Measure.[Budget], Measure.[Outlook vs Budget Gap]}) on column;
+
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook vs Budget %] = if(Measure.[Budget] > 12000) then safedivide(Measure.[Outlook] , Measure.[Budget],0) else 0;
+end scope;
+
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook vs Budget %] = 0;
+end scope;
+--calculations happens at lowest granularity level and to see the resukt we are suppose to select all the granularity in
+--select statement...data at what level
+--rule is at what level.
+--without product.sku jo aggregation me computed formula lkha hai wo calculate ho raha tha..isliye sahi result nahi dik raha tha
+--
+select ([Customer].[Account]  * Product.[SKU] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Outlook], Measure.[Shipment], Measure.[Forecast], Measure.[Budget], Measure.[Outlook vs Budget %]}) on column;
+
+
+-- NULL ka ek aur concept--
+--if ke condition me null assign nahi kar sakte..............
+
+--LY Outlook leadoffset
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[LY Outlook] = Measure.[Outlook]@(Time.#.Leadoffset(-12));
+end scope;
+
+select ([Customer].[Account] * Product.[SKU] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Outlook], Measure.[Budget], Measure.[Outlook vs Budget %], Measure.[LY Outlook]}) on column;
+--ek month aage ka positive values
+select &CurrentMonth.element(0).leadoffset(1);
+
+
+--cartesian scope to create some intersections----
+--bina file upload kiye data add kar liya
+cartesian scope: ([Customer].[Account] * [Region].[Country] * [Version].[Version Name].[CurrentWorkingView] );Measure.[Customer Region Association] = 1;end scope;
+
+--cartesian is tricky be careful
+
+Select ([Customer].[Account] * [Region].[Country] * [Version].[Version Name] ) on row, 
+({Measure.[Customer Region Association], Measure.[Regional Budget Allocation%]}) on column;
+
+
+
+--delete
+--version is a copy of database that cannot be modified...only used for reference
+delete data for model [RegionAllocation] where {Version.[Version Name].[CurrentWorkingView]};
+--1 Outlook vs LY Outlook Gap
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook vs LY Outlook Gap] = coalesce(Measure.[Outlook],0)-coalesce(Measure.[LY Outlook],0);
+end scope;
+
+--check
+select ([Customer].[Account]  * Product.[SKU] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Outlook], Measure.[LY Outlook], Measure.[Outlook vs LY Outlook Gap]}) on column;
+
+-- 2 Outlook vs LY Outlook %
+
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook vs LY Outlook %] = safedivide(coalesce(Measure.[Outlook],0),coalesce(Measure.[LY Outlook],0),0);
+end scope;
+
+--safedivide(Measure.[Outlook] , Measure.[Budget],0)
+
+select ([Customer].[Account]  * Product.[SKU] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({ Measure.[Outlook], Measure.[LY Outlook], Measure.[Outlook vs LY Outlook Gap], Measure.[Outlook vs LY Outlook %]}) on column;
+
+--3 Outlook vs LY Outlook Gap %
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Outlook vs LY Outlook Gap %] = safedivide(Measure.[Outlook vs LY Outlook Gap], 1817291.291) * 100 ;
+end scope;
+
+select ( [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({  Measure.[Outlook vs LY Outlook Gap]}) on column;
+
+
+
+-- select
+select ([Customer].[Account]  * Product.[SKU] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({  Measure.[Outlook vs LY Outlook Gap], Measure.[Outlook vs LY Outlook %], Measure.[Outlook vs LY Outlook Gap %]}) on column;
+
+
+
+--4 LY Consumption
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[LY Consumption] = Measure.[Consumption]@(Time.#.Leadoffset(-12));
+end scope;
+
+--select to verify
+select ([Customer].[Account]  * Product.[SKU] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({  Measure.[LY Consumption], Measure.[Consumption]}) on column;
+
+--5 Consumption vs LY Consumption Gap
+
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Consumption vs LY Consumption Gap] = coalesce(Measure.[Consumption],0)-coalesce(Measure.[LY Consumption],0);
+end scope;
+
+--select query
+
+select ([Customer].[Account]  * Product.[SKU] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({  Measure.[LY Consumption], Measure.[Consumption], Measure.[Consumption vs LY Consumption Gap]}) on column;
+
+-- 6 Consumption vs LY Consumption %
+scope: (Time.[Month] * Product.[SKU] *
+Customer.[Account] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Consumption vs LY Consumption %] = safedivide(Measure.[Consumption] , Measure.[LY Consumption],0);
+end scope;
+
+--select query
+select ([Customer].[Account]  * Product.[SKU] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({  Measure.[LY Consumption], Measure.[Consumption],Measure.[Consumption vs LY Consumption %], Measure.[Consumption vs LY Consumption Gap]}) on column;
+
+--Task 2 pastmonths
+select &CurrentMonth;
+select Time.[Month].filter(#.Key < &CurrentMonth.element(0).Key);
+
+
+
+--
+select Time.[Month].filter(#.Key > &CurrentMonth.element(0).Key);
+
+
+---cartesian again
+
+cartesian scope: ([Customer].[Account].[Walmart] * [Region].[Country].[USA] * [Version].[Version Name].[CurrentWorkingView] );Measure.[Customer Region Association] = 1;end scope;
+
+--multiple intersections
+cartesian scope: ([Customer].[Account].filter(#.Name in {[Walmart],[Kroger]}) * [Region].[Country].[USA] * [Version].[Version Name].[CurrentWorkingView] );Measure.[Customer Region Association] = 1;end scope;
+
+
+--Regional Budget
+scope:( [Customer].[Account] * [Product].[SKU] * [Region].[Country] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] );
+Measure.[Regional Budget] =if (Measure.[Customer Region Association]==1) then Measure.[Budget] * Measure.[Regional Budget Allocation%] else Null;
+end scope;
+
+--select ([Customer].[Account] * [Product].[SKU] * [Region].[Country] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] on row, 
+--({Measure.[Regional Budget],Measure.[Customer Region Association]}) on column;
+Select ([Customer].[Account] * [Product].[SKU] * [Region].[Country] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({Measure.[Regional Budget], Measure.[Customer Region Association]}) on column;
+
+Select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Region].[Country] * [Time].[Month].[1/1/2019] * [Version].[Version Name].[CurrentWorkingView] ) on row, 
+({Measure.[Regional Budget], Measure.[Customer Region Association], Measure.[Regional Budget Allocation%], Measure.[Budget]}) on column;
+--roll up case next 
+Select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Year].[2019] * [Version].[Version Name] ) on row, 
+({Measure.[Budget]}) on column;
+
+Select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Year].[2019].relatedmembers([Month]) * [Version].[Version Name] ) on row, 
+({Measure.[Budget]}) on column;
+--roll up...
+--dekh granularity month ki hai...humko year ki dekhna hai...
+--special instructions here..
+
+--8julyy.rtf file documents
+--rull up use here...aur meru me wo command ki roll up karna hai is spread
+spread scope: ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Year].[2019] * [Version].[Version Name].[CurrentWorkingView]);
+Measure.[Budget] = 200000;
+end scope;
+--spreading for regional budget
+--yes i was right for regional budget = budget
+-- 2 ways 1 way rerun regional budget scope 2nd way spread scope at higher level remove region dimension
+spread scope: ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Year].[2019].relatedmembers([Month]) * [Version].[Version Name].[CurrentWorkingView]);
+Measure.[Regional Budget] = Measure.[Budget];
+end scope;
+Select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Region].[Country] * [Time].[Year].[2019].relatedmembers([Month]) * [Version].[Version Name] ) on row, 
+({Measure.[Regional Budget]}) on column;
+
+--select &FutureMonths.element(2);
+
+scope: ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * &FutureMonths.element(2) * &CWV);
+Measure.[Forecast] = 20000;
+end scope;
+select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * &FutureMonths.element(2) * &CWV) on row, 
+({Measure.[Forecast], Measure.[Budget], Measure.[Outlook], Measure.[Outlook Vs Budget Gap]}) on column;
+
+
+--Dry Run Ki ek command
+
+EXEC plugin instance [DemandPrioritization] for measures {[RDemandQty] } using scope ([Version].[Version Name].[CurrentWorkingView]) using arguments {([MaxMessageLength], 2000000),([DryRun],true)};
+
+
+
+
+--recurrence concept channel inventory..
+Select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Budget], Measure.[Channel Inv], Measure.[Consumption], Measure.[Shipment]}) on column;
+
+--scope
+--
+recurrence scope: ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Month] * [Version].[Version Name].[CurrentWorkingView]); Measure.[Channel Inv] = if(Time.#.Key == &PlanningMonths.element(0).Key) then Measure.[Channel Inv] else Measure.[Channel Inv]@(Time.#.Leadoffset(-1)) + coalesce(Measure.[Shipment],0) - coalesce(Measure.[Consumption],0);end scope;
+
+Select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea] * [Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Budget], Measure.[Channel Inv], Measure.[Consumption], Measure.[Shipment]}) on column;
+
+--select Time.#.Key;
+
+save
+
+
+scope:([Product].[SKU] * [Customer].[Account] * &CWV * &PlanningMonths);
+Measure.[Approved Forecast] = Measure.[Forecast];
+end scope;
+
+scope:([Product].[SKU].filter(#.Name in {[Milo],[KitKat]}) * [Customer].[Account] * &CWV * &PlanningMonths);
+Measure.[Approved Forecast] = Measure.[Forecast];
+end scope;
+
+
+scope:([Product].[SKU].filter(#.Name in {[Milo],[KitKat]}) * [Customer].[Account].filter(#.Name in {[Kroger],[Walmart]}) * &CWV * &PlanningMonths);
+Measure.[Approved Forecast] = Measure.[Forecast];
+end scope;
+
+select ([Product].[SKU].filter(#.Name in {[Milo],[KitKat]}) * [Customer].[Account].filter(#.Name in {[Kroger],[Walmart]}) * &CWV * &PlanningMonths) on row,
+({Measure.[Approved Forecast], Measure.[Forecast]}) on column;
+
+scope:([Product].[SKU].filter(#.Name in {[Milo],[KitKat]}) * [Customer].[Account].filter(#.Name in {[Kroger],[Walmart]}) * &CWV * &PlanningMonths);
+Measure.[Approved Forecast] = Measure.[Forecast];
+end scope;
+
+scope:([Product].[SKU]{{#filter SKUsList}} * [Customer].[Account* &CWV * &PlanningMonths);
+Measure.[Approved Forecast] = Measure.[Forecast];
+end scope;
+
+
+select Product.[SKU];
+select Customer.[Account];
+select (Time.[Year].filter(#.Name in {[2018],[2019],[2020}).relatedmembers([Month]));
+
+select (Time.[Year]{{#filter Year}}.relatedmembers([Month]));
+
+createmember([Item].[SKU] = { , "Liril Strong - 100"}
+, [Item].[Brand] = { , "Liril"} );
+createmember(Product.[All Products] = {, "Prod"} * Product.[Classification] = {,"A"} * Product.[Product Category] = {,"Category"} * Product.[SKU] ={,"New SKU"});
+
+
+--{{FieldName}}
+createmember(Product.[All Products] = {, "Prod"}, Product.[Classification] = {, "A"} , Product.[Product Category] = {, "Category"} , Product.[SKU] ={{AddNewSKU}});
+
+
+updatemember([Product].[Product Category]={,"Chocolate"}, [Product].[CMSubmission]={False,});
+
+--use case ke task ke liye query
+
+scope :([Customer].[Account] * Product.[Product Category].[{{#filter_evaluate}}]);
+
+
+ select (Time.[Quarter] * Customer.[Account] * Version.[Version Name].[CurrentWorkingView]) on row, ({Measure.[Account Contribution %]}) on column;
+
+
+
+Select ([Customer].[Account] * [Product].[SKU] * [Time].[Quarter] * [Version].[Version Name] ) on row, 
+({Measure.[QuarterlyForecast], Measure.[QuarterlyShipment], Measure.[Variance between Shipment and Forecast]}) on column;
+
+Select ([Customer].[Account] * [Product].[SKU] * [Time].[Month].filter(#.Name contains "1/1/2018") * [Version].[Version Name] ) on row, 
+({ Measure.[Consumption]}) on column;
+
+---Ananya Sharda Queries----
+select Time.[Month].filter(#.DisplayName contains "Apr");
+
+select Customer.[Account].filter(#.[DisplayName] contains "Kroger");
+
+
+select Customer.[Account].filter(#.Key contains "2");
+
+select Customer.[Account].filter(#.Key>0);
+
+
+Select ([Customer].[Account].[Walmart]* [Product].[SKU] * [Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Budget],Measure.[Outlook],Measure.[Shipment],Measure.[Forecast]}) on column;
+
+Select ([Version].[Version Name] ) on row, 
+({Measure.[Budget]}) on column;
+
+
+Select([Customer].[Account]) on row,
+({Measure.[Budget]}) on column;
+
+select Time.[Month];
+
+select Time.[Month].filter(#.Key< todatetime("2019/07/01"));
+
+select Time.[Month].filter(#.[Month$IsCurrent] == True);
+
+
+
+select &CurrentMonth;
+
+select Time.[Month].filter(#.Key< &CurrentMonth.element(0).Key);
+
+scope:(Time.[Month].filter(#.Key < &CurrentMonth.element(0).Key)*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Outlook]=Measure.[Shipment];
+end scope;
+
+scope:(Time.[Month].filter(#.Key >= &CurrentMonth.element(0).Key)*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Outlook]=coalesce(Measure.[Forecast],10000);
+end scope;
+
+scope:(Time.[Month].filter(#.Key >= &CurrentMonth.element(0).Key)*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Outlook]= if(Measure.[Outlook]==10000) then 0 else Measure.[Outlook];
+end scope;
+
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Outlook]= if(isnull(Measure.[Forecast])) then 100 else Measure.[Outlook];
+end scope;
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[OutlookVsBudgetGap]= Measure.[Outlook]-Measure.[Budget];
+end scope;
+
+
+
+
+Select ([Customer].[Account].[Walmart]* [Product].[SKU].[Nestea] * [Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Budget],Measure.[Outlook],Measure.[OutlookVsBudgetGap],Measure.[Outlook Vs Budget %]}) on column;
+
+scope:(Time.[Month].filter(#.Key < &CurrentMonth.element(0).Key)*Product.[SKU].[Nestea]*Customer.[Account].[Walmart]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Outlook]=null;
+end scope;
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[OutlookVsBudgetGap]= coalesce(Measure.[Outlook],0)-Measure.[Budget];
+end scope;
+
+
+
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Outlook Vs Budget %]= safedivide(Measure.[Outlook],Measure.[Budget],0);
+end scope;
+
+Select ([Customer].[Account]* Product.[SKU]*[Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Budget],Measure.[LY Outlook],Measure.[Outlook],Measure.[OutlookVsBudgetGap],Measure.[Outlook Vs Budget %]}) on column;
+
+
+
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Outlook Vs Budget %]= if(Measure.[Budget]>12000) then safedivide(Measure.[Outlook],Measure.[Budget],0) else 0;
+end scope;
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[LY Outlook]= Measure.[Outlook]@(Time.#.Leadoffset(-12));
+end scope;
+
+
+select &CurrentMonth;
+select &CurrentMonth.element(0).leadoffset(1);
+
+scope: ([Customer].[Account].[Walmart] * [Region].[Country].[USA] * [Version].[Version Name].[CurrentWorkingView]);
+Measure.[Customer Region Association]=1;
+end scope;
+
+select([Customer].[Account].[Walmart] * [Region].[Country].[USA] * [Version].[Version Name].[CurrentWorkingView]) on row,
+({Measure.[Customer Region Association]}) on column;
+
+select([Customer].[Account]* [Region].[Country]* [Version].[Version Name].[CurrentWorkingView]) on row,
+({Measure.[Customer Region Association]}) on column;
+
+select () on row, ({}) on column;
+
+Cartesian scope: ([Customer].[Account].[Walmart]* [Region].[Country].[USA]* [Version].[Version Name].[CurrentWorkingView]);Measure.[Customer Region Association]=1;end scope;
+
+Cartesian scope: ([Customer].[Account]* [Region].[Country]* [Version].[Version Name].[CurrentWorkingView]);Measure.[Customer Region Association]=1;end scope;
+
+--deletes data so that no intersection remainsbecause of scope
+
+delete data for model [Region Allocation];
+
+
+delete data for model [Region Allocation] where {Version.[Version Name].[CurrentWorkingView]};;
+
+
+-----Exercise----------------------------------------------------
+
+--First Create measure ''Outlook vs LY Outlook Gap''in designer
+
+--Populating data for Outlook vs LY Outlook Gap
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Outlook vs LY Outlook Gap]= Measure.[Outlook]-Measure.[LY Outlook];
+end scope;
+
+Select ([Customer].[Account]* Product.[SKU]*[Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Outlook],Measure.[LY Outlook],Measure.[Outlook vs LY Outlook Gap]}) on column;
+
+--Create measure ''Outlook vs LY Outlook %'' in Designer
+
+
+--Populating data for Outlook vs LY Outlook %
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Outlook vs LY Outlook %]= if(Measure.[LY Outlook]!=0) then Measure.[Outlook] / Measure.[LY Outlook];
+end scope;
+
+Select ([Customer].[Account]* Product.[SKU]*[Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Outlook],Measure.[LY Outlook],Measure.[Outlook vs LY Outlook Gap],Measure.[Outlook vs LY Outlook %]}) on column;
+
+--Create measure Outlook vs LY Outlook Gap %
+--Populating data for Outlook vs LY Outlook Gap %
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Outlook vs LY Outlook Gap %]= if(Measure.[LY Outlook]!=0) then Measure.[Outlook vs LY Outlook Gap] / Measure.[LY Outlook];
+end scope;
+
+Select ([Customer].[Account]* Product.[SKU]*[Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[LY Outlook],Measure.[Outlook vs LY Outlook Gap],Measure.[Outlook vs LY Outlook Gap %]}) on column;
+
+--Create measure LY consumption
+--Populating data for LY Consumption
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[LY Consumption]= Measure.[Consumption]@(Time.#.Leadoffset(-12));
+end scope;
+
+Select ([Customer].[Account]* Product.[SKU]*[Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Consumption],Measure.[LY Consumption]}) on column;
+
+--Create measure Consumption vs LY Consumption Gap
+--Populating data for Consumption vs LY Consumption Gap
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Consumption vs LY Consumption Gap]= Measure.[Consumption]-Measure.[LY Consumption];
+end scope;
+
+Select ([Customer].[Account]* Product.[SKU]*[Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Consumption vs LY Consumption Gap],Measure.[Consumption],Measure.[LY Consumption]}) on column;
+
+--Create measure Consumption vs LY Consumption %
+--Populating data for Consumption vs LY Consumption %
+
+scope:(Time.[Month]*Product.[SKU]*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Consumption vs LY Consumption %]= if(Measure.[LY Consumption]!=0) then Measure.[Consumption] / Measure.[LY Consumption];
+end scope;
+
+
+Select ([Customer].[Account]* Product.[SKU]*[Time].[Month] * [Version].[Version Name] ) on row, 
+({Measure.[Consumption vs LY Consumption %],Measure.[Consumption],Measure.[LY Consumption]}) on column;
+
+-----Creating named sets
+
+
+--1) Creating PlanningMonths
+
+select Time.[Month];
+
+select &PlanningMonths;
+
+
+
+
+
+
+--2) Creating CurrentMonth named set
+
+select &CurrentMonth;
+
+--3)Creating PastMonths named set
+
+select Time.[Month].filter(#.Key< &CurrentMonth.element(0).Key);
+
+select &PastMonths;
+
+
+
+--4) Creating FutureMonth named Set
+
+select Time.[Month].filter(#.Key> &CurrentMonth.element(0).Key);
+
+select &FutureMonths;
+
+--5) Creating CWV named set
+
+select Version.[Version Name];
+
+select Version.[Version Name].filter(#.Key==0);
+
+select &CWV;
+
+
+
+----11 July
+
+Cartesian scope: ([Customer].[Account].filter(#.Name in {[Walmart],[Kroger]})* [Region].[Country].[USA]* [Version].[Version Name].[CurrentWorkingView]);Measure.[Customer Region Association]=1;end scope;
+
+----Scope for finding Regional Budget
+scope: ( Customer.[Account]*Region.[Country]*Product.[SKU]*Time.[Month]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Regional Budget]= if(Measure.[Customer Region Association]==1) then Measure.[Budget]*Measure.[Regional Budget Allocation%] else Null;
+end scope;
+--Budget Allocation
+
+select ([Customer].[Account].[Walmart]*Product.[SKU].[Nestea]*Time.[Month].[1/1/2019]*Version.[Version Name].[CurrentWorkingView]) on row,
+({Measure.[Budget]}) on column;
+--- Percentage Allocation
+
+select (Customer.[Account].[Walmart]*Region.[Country]*Version.[Version Name].[CurrentWorkingView]) on row,
+({Measure.[Regional Budget Allocation%],Measure.[Customer Region Association]}) on column;
+
+---Regional Budget(Its a union of above two queries(union)
+select (Customer.[Account].[Walmart]*Product.[SKU].[Nestea]*Time.[Month].[1/1/2019]*Region.[Country]*Version.[Version Name].[CurrentWorkingView]) on row,
+({Measure.[Regional Budget Allocation%],Measure.[Customer Region Association],Measure.[Regional Budget]}) on column;
+
+---Budget for walmart Nestea for year 2019:
+select ([Customer].[Account].[Walmart]*Product.[SKU].[Nestea]*Time.[Year].[2019]*Version.[Version Name].[CurrentWorkingView]) on row,
+({Measure.[Budget]}) on column;
+
+----Want to increase the nestea budget in walmart for 2019--
+---DEFINING SCOPE
+
+scope: ( Customer.[Account].[Walmart]*Region.[Country]*Product.[SKU].[Nestea]*Time.[Year].[2019]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Budget]=200000;
+end scope;
+--WE GET ERROR FOR ABOVE SINCE budget granularity is account sku month.
+
+select ([Customer].[Account].[Walmart]*Product.[SKU].[Nestea]*Time.[Year].[2019].relatedmembers([Month])*Version.[Version Name].[CurrentWorkingView]) on row,
+({Measure.[Budget]}) on column;
+
+---WE NEED TO ADD KEYWORD SPREAD( Granularity OF RHS CAN BE higher than LHS)
+---spreading budget----FIRST CREATE BASIS MEASURE FOR BUDGET, AND SPECIFY THE BASIS MEASURE TYPE AS BASIS MEASURE(It creates ratio of month/sum), now put SpreadingType as copy to leaves, so that we get ratios with updates budget of 200000.
+spread scope: ( Customer.[Account].[Walmart]*Region.[Country]*Product.[SKU].[Nestea]*Time.[Year].[2019]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Budget]=200000;
+end scope;
+---Now after executing, this scope, the budgert gets changed monthly wise.
+
+---Now,Updating the regional budget:
+--First method
+scope: ( Customer.[Account]*Region.[Country]*Product.[SKU]*Time.[Month]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Regional Budget]= if(Measure.[Customer Region Association]==1) then Measure.[Budget]*Measure.[Regional Budget Allocation%] else Null;
+end scope;
+
+select ([Customer].[Account].[Walmart]*Product.[SKU].[Nestea]*Time.[Month]*Version.[Version Name].[CurrentWorkingView]) on row,
+({Measure.[Regional Budget],Measure.[Budget]}) on column;
+--Alternate Method--removing country 
+spread scope([Customer].[Account].[Walmart]*Product.[SKU].[Nestea]*Time.[Year].[2019].relatedmembers([Month])*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Regional Budget]=Measure.[Budget];
+end scope;
+
+----running the select
+select ([Customer].[Account].[Walmart]*Product.[SKU].[Nestea]*Time.[Year].[2019].relatedmembers([Month])*Region.[Country]*Version.[Version Name].[CurrentWorkingView]) on row,
+({Measure.[Regional Budget]}) on column;
+
+
+-----------Calculating EOH---------------------
+Select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea]* [Time].[Month] * [Version].[Version Name] ) on row, 
+({ Measure.[Channel Inv], Measure.[Consumption], Measure.[Shipment]}) on column;
+
+---first method
+recurrence scope: ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea]* [Time].[Month] * [Version].[Version Name].[CurrentWorkingView]);
+Measure.[Channel Inv]=if(Time.#.Key== &PlanningMonths.element(0).Key) then Measure.[Channel Inv] else Measure.[Channel Inv]@(Time.#.Leadoffset(-1))-Measure.[Consumption]+coalesce(Measure.[Shipment],0);end scope;
+
+--Recurrence scope is very limited. used only for such cases like calculating inventory----SECOND METHOD
+recurrence scope: ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea]* [Time].[Month] * [Version].[Version Name].[CurrentWorkingView]);Measure.[Channel Inv]=coalesce(Measure.[Channel Inv],Measure.[Channel Inv]@(Time.#.Leadoffset(-1))-Measure.[Consumption]+coalesce(Measure.[Shipment],0));end scope;
+
+---This works only if months are continous.If any month is missing , u wil have to add it using cartesian.
+
+
+---ACTIVE RULES
+
+
+Select ([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea]*&FutureMonths *&CWV) on row, 
+({Measure.[Budget], Measure.[Forecast], Measure.[Outlook],  Measure.[OutlookVsBudgetGap]}) on column;
+
+select &FutureMonths.element(2);
+
+scope:([Customer].[Account].[Walmart] * [Product].[SKU].[Nestea]*&FutureMonths.element(2)*&CWV);
+Measure.[Forecast]=20000;
+end scope;
+
+
+----16JULY---ACTION BUTTONS
+
+scope:
+(Time.[Month]*Product.[SKU].filter(#.Name in {[KitKat],[Milo]})*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Approved Forecast]=Measure.[Forecast];
+end scope;
+
+--Moustache template #filter
+--LS doesnt understand moustache, understands only ibpl
+--moustache connects thru web api
+
+---Moustache :
+
+scope:
+(Time.[Month]*Product.[SKU]{{#filter SKUslist}}*Customer.[Account]*Version.[Version Name].[CurrentWorkingView]);
+Measure.[Approved Forecast]=Measure.[Forecast];
+end scope;
+
+Product.[SKU]       {{#filter SKUslist}}
+Product.[SKU]       .filter(#.Name in {[KitKat],[Milo]})
+
+[[Product].[SKU]
+select Customer.[Account];
+
+select Time.[Year].filter(#.Name in {[2018],[2019],[2020]}).relatedmembers([Month]);
+
+select Time.[year]{{#filter YearList}}.relatedmembers([Month]);
+[Product][Product]
+[Product]
+reatemember([Product].[SKU] = { , "Liril Strong - 100"}, [Item].[Brand] = { , "Liril"} ); 
+
+
+
+createmember( [Product].[All Products]={,"All"},[Product].[Classification]={,"A"},[Product].[Product Category]={,"Chocolate"},[Product].[SKU]={,"Snickers"});
+
+
+
+createmember( [Product].[All Products]={,"All"},[Product].[Classification]={,"A"},[Product].[Product Category]={,"Chocolate"},[Product].[SKU]={,"{{NewSKUName}}"});
+
+select [Product].[SKU];
+
+
+
+updatemember([Product].[SKU]={,"Butterfinger"},[Product].[SKU Price]={"100",});
+
+updatemember([Product].[SKU]={,"{{SKU}}"},[Product].[SKU Price]={"{{SKUPrice}}",});
+
+--LEARN ON YOUR OWN----USED TO DO IT AGAIN AGAIN MULTIPLE UPDATE
+
+{{#each SKU}}
+updatemember([Product].[SKU]={,"{{SKU}}"},[Product].[SKU Price]={"{{SKUPrice}}",});
+{{/each}}
+-------17 JULY EXCELPLUGIN AND DATA SECURITY
+
+updatemember([Product].[Product Category]={,"Chocolate"},[Product].[CMSubmission]={true,});
+
+updatemember([Product].[Product Category]={,"Chocolate"},[Product].[CMSubmission]={true,});
+
+resetaccesscontrol;
+
+updatemember([Product].[Product Category]={,"{{#filter_evaluate_to_name Product.[Product Category]}}"},[Product].[CMSubmission]={true,});
+
+--DATA SECURITY RULES
+
+Deny Read Access CMRule_1 to roles [CategoryManagerData] for members [Product].[Product Category].filter(#.Name !="Chocolate");
+Grant Write Access CMRule_2 to roles [CategoryManagerData] for members [Product].[Product Category].filter(#.Name =="Chocolate");
+
+grant read access CMRule_4 to roles [CategoryManagerData] for plan [Training Plan];
+
+grant write access CMRule_5 to roles [CategoryManagerData] for measure[Forecast] using scope(Product.[Product Category].Filter(#.[CMSubmission]==False));
+
+----R Plugin
+
+EXEC plugin instance [DemandPrioritization] for measures {[RDemandQuantity] } using scope ([Version].[Version Name].[CurrentWorkingView]) ;
+
+
+changing property display name:
+
+
+
+
+
+updatemember([Version].[Version Name]={,""},[Version].[Version$DisplayName]={"",});
+
+grant write access to members is useless,nopoint.
+
+assortment basis- using another measure to define the spreading (Exampke : Using association)
+self basis- the measure Using itself for spreading
+
+
+year month week day
+
+year season week ---Alternate heirachy,still we will have only one key
+
+ which will be day
+
+
+you cant change the existing keys, when it is already exist
+
+
+---version and scenario
+
+
+
+
+
+updatemember([Version].[Version Name]={,""},[Version].[Version$DisplayName]={"",});
